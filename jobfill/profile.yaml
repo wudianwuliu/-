@@ -1,0 +1,143 @@
+# ============================================================================
+# 网申个人资料 —— 模板（这是示例数据，请全部替换成你自己的）
+# ----------------------------------------------------------------------------
+# 用法：把值改成你的真实信息。填过一遍，之后所有公司的网申都复用这一份。
+#   * 写 null 表示「还没填」——工具会跳过它，并在 `check` 里列出来提醒你。
+#   * 不要写假数据（身份证号这类，填错比空着更麻烦）。
+#   * 日期统一用 YYYY-MM 或 YYYY-MM-DD，工具会按表单要求自动转格式。
+#   * 手机号/QQ 一定加引号，否则前导 0 或长数字会被 YAML 吃掉。
+#   * 改完跑一次：jobfill check
+# ============================================================================
+
+# ------------------------------ 基本信息 -----------------------------------
+basic:
+  name: 张三
+  used_name: null                 # 曾用名
+  gender: 男
+  birth_date: null                # 如 2003-05-18
+  id_type: 身份证
+  id_number: null                 # 身份证号（建议不要提交到公开仓库）
+  nation: 汉族
+  political_status: 群众          # 中共党员 / 中共预备党员 / 共青团员 / 群众
+  marital_status: 未婚
+  height: null                    # cm
+  weight: null                    # kg
+  phone: "13800138000"
+  email: "zhangsan@example.com"
+  wechat: null
+  qq: "100000000"
+  native_place: null              # 籍贯，如 湖北省黄冈市
+  household_place: null           # 户口所在地
+  current_city: null              # 现居住城市
+  address: null                   # 详细通讯地址
+  postal_code: null
+  hukou_type: 城镇                # 城镇 / 农村
+  photo: null                     # 证件照，如 assets/photo.jpg
+
+# ------------------------------ 求职意向 -----------------------------------
+intention:
+  position: 数据开发工程师
+  position_alt: null              # 第二志愿岗位
+  job_type: 校园招聘
+  expected_city: 全国
+  expected_city_list: []
+  accept_relocation: 是           # 是否服从调剂
+  expected_salary: 面议
+  available_date: null            # 可到岗时间
+  intern_duration: null
+  intern_days_per_week: null
+  accept_night_shift: null
+  how_did_you_know: 公司招聘官网
+
+# ------------------------------ 教育经历 -----------------------------------
+# 最新学历放第一条。degree 用「本科 / 硕士 / 博士 / 大专」这类标准写法。
+education:
+  - school: 示例大学
+    school_type: 普通本科          # 985 / 211 / 双一流 / 普通本科 / 独立学院 / 民办
+    major: 数据科学与大数据技术
+    major_category: 计算机类
+    degree: 本科
+    degree_level: 本科
+    start_date: 2023-09
+    end_date: 2027-06
+    graduation_year: 2027
+    is_full_time: 是
+    study_mode: 全日制
+    gpa: null
+    rank: 专业排名前 20%
+    courses: 数据库原理与应用、Python 数据分析、Hadoop 与 Spark、数据结构与算法、Linux 操作系统
+    honors: 示例：获得校级奖学金；担任班级学习委员，牵头小组完成课程设计并获评优秀
+    city: 示例市
+
+# ------------------------------ 成绩与证书 ---------------------------------
+scores:
+  cet4: null
+  cet6: null
+  english_level: 大学英语四级
+  computer_level: 计算机二级
+  other_certificates: 无
+  has_failed_course: 否
+  scholarship: 无
+
+# ------------------------------ 实习经历 -----------------------------------
+# 双非本科投数据岗，实习经历比学校牌子管用得多。有就填，没有留空列表。
+internships: []
+
+# ------------------------------ 项目经历 -----------------------------------
+# 网申通常要：项目名称 / 起止时间 / 角色 / 描述 / 职责。描述尽量压到 300 字内。
+projects:
+  - name: 示例项目：用户行为分析平台
+    role: 数据开发（独立完成）
+    start_date: 2025-11
+    end_date: 2026-01
+    company: 个人项目
+    stack: Python, SQL, Hive, Spark, Linux
+    description: >
+      示例：用日志采集组件把原始行为日志接入消息队列，按类型分区后写入 Hive 分层数仓；
+      用 SQL 计算日活、留存、转化漏斗等指标，把原来 T+1 的手工统计压缩到小时级产出。
+    duty: 示例：独立负责采集链路、数仓分层建模、指标开发与看板部署。
+  - name: 示例项目：电商数据清洗与分析
+    role: 数据分析
+    start_date: 2026-03
+    end_date: 2026-04
+    company: 个人项目
+    stack: Python, Pandas, SQL, Matplotlib
+    description: >
+      示例：处理数十万条点击流数据，完成缺失值填充、时间戳解析与异常值识别；
+      用多表关联 SQL 计算 PV/UV、加购率、支付转化率与留存率，输出图表与分析报告。
+    duty: 示例：数据清洗、指标 SQL 开发、可视化与结论输出。
+
+# ------------------------------ 技能 ---------------------------------------
+skills:
+  languages: Python（Pandas / NumPy）、SQL（多表关联、窗口函数）、Java 基础
+  bigdata: Hadoop（HDFS / Hive）、Spark 离线计算与 Spark SQL
+  database: MySQL、Hive
+  ops: Linux 常用命令与 Shell 脚本、Crontab 定时调度、Docker 基础
+  tools: Git、VS Code
+
+# ------------------------------ 语言能力 -----------------------------------
+languages:
+  english: 英语（CET-4）
+  other: 无
+
+# ------------------------------ 家庭信息 -----------------------------------
+# 只有表单明确要求「家庭主要成员」时才填。故意留空可以避免误填。
+family: []
+
+# ------------------------------ 紧急联系人 ---------------------------------
+emergency:
+  name: null
+  relation: null
+  phone: null
+
+# ------------------------------ 其他 ---------------------------------------
+misc:
+  is_fresh_graduate: 是
+  has_offer: 否
+  need_visa: 否
+  disability: 无
+  criminal_record: 无
+  relative_in_company: 无
+  agree_background_check: 是
+  agree_data_processing: 是
+  password: null                  # 只是给自己记的，工具不会用它

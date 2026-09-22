@@ -1,0 +1,500 @@
+# ============================================================================
+# 字段识别表：网申表单上的中文标签 → profile.yaml 里的字段
+# ----------------------------------------------------------------------------
+# 这是整个工具的「大脑」。识别不准时，只需要往这里加一条别名，下次就准了。
+# 也可以完全不管它：用 `fill --learn` 跑一遍，工具会问你未识别的字段，
+# 答案自动写进 learned.yaml，优先级高于本文件。
+#
+# 匹配规则（按优先级）：
+#   1. normalize 后完全相等        → 1.00
+#   2. 别名是标签的子串/反之        → 0.86~0.98（越接近越长越得分）
+#   3. 编辑距离相似度 ≥ 0.72        → 0.55~0.85
+#   4. exclude 里出现任一关键词    → 直接 0 分（防止把「姓名」填进「父亲姓名」）
+# ============================================================================
+
+# 每个顶层分组对应的中文区块标题（用于确认字段出现在表单的哪一块）
+group_sections:
+  basic: [基本信息, 个人信息, 个人资料, 应聘者信息, 我的信息, 基本信息填写, 个人基本信息]
+  intention: [求职意向, 应聘意向, 意向岗位, 求职意愿, 应聘信息]
+  education: [教育经历, 教育背景, 学习经历, 教育信息, 学历信息, 教育情况]
+  internship: [实习经历, 工作经历, 实习经验, 工作经验, 实习信息]
+  project: [项目经历, 项目经验, 项目信息, 科研经历]
+  scores: [成绩, 成绩信息, 证书, 语言能力, 技能证书, 荣誉, 获奖情况, 证书信息]
+  skills: [专业技能, 技能特长, 技能, 专业特长]
+  language: [语言能力, 外语水平, 语言水平]
+  family: [家庭, 家庭成员, 家庭主要成员, 家庭信息, 亲属, 家庭情况]
+  emergency: [紧急联系人, 紧急联络人, 紧急联系人信息]
+  misc: [其他, 其他信息, 补充信息, 声明, 其他说明]
+
+# 落在这些区块里的字段，默认不填（除非 profile 里明确提供了 family./emergency. 数据）
+# 目的：绝不把你的姓名/手机号误填到「父亲姓名」「紧急联系人电话」里
+danger_sections: [家庭, 家庭成员, 家庭主要成员, 家庭信息, 家属, 亲属, 社会关系, 紧急联系, 紧急联络, 监护人, 推荐人, 配偶, 父, 母]
+
+# 永远不要碰的字段（含这些词的标签直接跳过）
+ignore_labels:
+  - 验证码
+  - 短信验证码
+  - 图形验证码
+  - 手机验证码
+  - 邮箱验证码
+  - captcha
+  - 密码
+  - 确认密码
+  - 新密码
+  - 原始密码
+  - 搜索
+  - 查询
+  - 请输入关键字
+
+# 枚举值同义词：profile 里写的值 → 表单选项可能的写法
+value_synonyms:
+  "是": [是, 有, 同意, 接受, 可以, 会, 愿意, 参加, 已参加, yes, y, true]
+  "否": [否, 没有, 无, 不同意, 不接受, 不可以, 不会, 未曾, 未参加, no, n, false, 都不]
+  "无": [无, 否, 没有, 不曾, 未, 都不, 暂无]
+  "有": [有, 是, 曾, 曾经]
+  "男": [男, 男性]
+  "女": [女, 女性]
+  "本科": [本科, 大学本科, 全日制本科, 本科生, 学士, 本科(学士), 学士学位]
+  "硕士": [硕士, 硕士研究生, 研究生, 硕士学位]
+  "博士": [博士, 博士研究生]
+  "大专": [大专, 专科, 大学专科, 高职]
+  "共青团员": [共青团员, 团员, 中国共产主义青年团团员]
+  "中共党员": [中共党员, 党员, 中国共产党党员]
+  "中共预备党员": [中共预备党员, 预备党员]
+  "群众": [群众, 普通群众, 其他, 无党派]
+  "未婚": [未婚, 单身, 未结婚]
+  "身份证": [身份证, 居民身份证, 中华人民共和国居民身份证]
+  "城镇": [城镇, 非农业, 城镇户口, 非农业户口, 城市户口]
+  "农村": [农村, 农业, 农业户口, 农村户口]
+  "全日制": [全日制, 普通全日制, 统招, 全日制统招]
+  "校园招聘": [校园招聘, 校招, 应届生招聘, 校园渠道, 应届毕业生]
+  "大学英语四级": [大学英语四级, 英语四级, 四级, cet4, cet-4, cet 4]
+  "大学英语六级": [大学英语六级, 英语六级, 六级, cet6, cet-6, cet 6]
+  "全国": [全国, 不限, 不限城市, 均可, 不限地区, 全国范围]
+  "面议": [面议, 可面议, 面谈, 不限, 依公司规定]
+  "独立学院": [独立学院, 民办独立学院, 普通本科(独立学院)]
+  "汉族": [汉族, 汉]
+  "偏技术": []
+
+# ============================================================================
+# 字段表：键名 = <分组>.<profile里的字段名>
+#   widget: choice 表示这是个枚举字段——如果页面上是个只读文本框或假下拉；
+#           工具会尝试点击展开再选，失败才回填文本。
+# ============================================================================
+fields:
+
+  # ------------------------------ 基本信息 --------------------------------
+  basic.name:
+    label: 姓名
+    aliases: [姓名, 真实姓名, 中文姓名, 考生姓名, 本人姓名, 应聘者姓名, 姓名中文, 学生姓名]
+    exclude: [拼音, 英文, 汉语拼音, 父, 母, 亲属, 家庭, 家属, 紧急, 监护, 推荐, 配偶, 联系人, 担保]
+    widget: text
+  basic.used_name:
+    label: 曾用名
+    aliases: [曾用名, 曾用姓名, 原名]
+    widget: text
+  basic.gender:
+    label: 性别
+    aliases: [性别, 性  别, sex, gender]
+    widget: choice
+  basic.birth_date:
+    label: 出生日期
+    aliases: [出生日期, 出生年月, 生日, 出生时间, 出生年月日, 出生日期年月, 出生年份]
+    widget: date
+  basic.id_type:
+    label: 证件类型
+    aliases: [证件类型, 身份证件类型, 证件种类, 身份证类型]
+    widget: choice
+  basic.id_number:
+    label: 身份证号
+    aliases: [身份证号, 身份证号码, 身份证件号码, 证件号码, 证件号, 身份证, 证件编号]
+    exclude: [父, 母, 家庭, 家属, 紧急, 监护, 配偶, 推荐]
+    widget: text
+  basic.nation:
+    label: 民族
+    aliases: [民族, 民族成分]
+    widget: choice
+  basic.political_status:
+    label: 政治面貌
+    aliases: [政治面貌, 政治状况, 党派]
+    widget: choice
+  basic.marital_status:
+    label: 婚姻状况
+    aliases: [婚姻状况, 婚姻状态, 婚否]
+    widget: choice
+  basic.height:
+    label: 身高
+    aliases: [身高, 身高cm, 身高厘米]
+    widget: text
+  basic.weight:
+    label: 体重
+    aliases: [体重, 体重kg, 体重公斤]
+    widget: text
+  basic.phone:
+    label: 手机号码
+    aliases: [手机号码, 手机号, 手机, 联系电话, 电话号码, 电话, 移动电话, 联系方式, 本人电话, 常用电话]
+    exclude: [父, 母, 亲属, 家庭, 家属, 紧急, 监护, 推荐, 配偶, 联系人, 担保, 区号, 固定电话, 座机, 验证]
+    widget: text
+  basic.email:
+    label: 电子邮箱
+    aliases: [电子邮箱, 邮箱, email, 电子邮件, 常用邮箱, 电子信箱, 邮件地址]
+    exclude: [父, 母, 家庭, 紧急, 监护, 推荐, 配偶, 联系人]
+    widget: text
+  basic.wechat:
+    label: 微信号
+    aliases: [微信号, 微信, 微信账号]
+    widget: text
+  basic.qq:
+    label: QQ号
+    aliases: [qq号, qq, qq号码]
+    widget: text
+  basic.native_place:
+    label: 籍贯
+    aliases: [籍贯, 祖籍, 出生地, 生源地]
+    widget: text
+  basic.household_place:
+    label: 户口所在地
+    aliases: [户口所在地, 户口所在地区, 户籍所在地, 户籍地, 户口地址]
+    widget: text
+  basic.current_city:
+    label: 现居住城市
+    aliases: [现居住城市, 现居地, 现居住地, 当前所在地, 目前所在地, 现所在地, 居住城市]
+    widget: text
+  basic.address:
+    label: 通讯地址
+    aliases: [通讯地址, 联系地址, 现居住地址, 详细地址, 家庭地址, 居住地址, 邮寄地址, 通信地址]
+    widget: text
+  basic.postal_code:
+    label: 邮政编码
+    aliases: [邮政编码, 邮编, 邮政编号]
+    widget: text
+  basic.hukou_type:
+    label: 户口性质
+    aliases: [户口性质, 户籍性质, 户口类型, 户籍类型]
+    widget: choice
+  basic.photo:
+    label: 照片
+    aliases: [照片, 证件照, 个人照片, 头像, 相片]
+    widget: file
+
+  # ------------------------------ 求职意向 --------------------------------
+  intention.position:
+    label: 应聘岗位
+    aliases: [应聘岗位, 应聘职位, 申请职位, 意向岗位, 期望岗位, 期望职位, 求职岗位, 意向职位, 应聘岗位名称, 职位名称, 第一志愿]
+    exclude: [第二志愿, 备选, 岗位类别, 岗位类型]
+    widget: choice
+  intention.position_alt:
+    label: 第二志愿岗位
+    aliases: [第二志愿, 备选岗位, 第二意向, 第二职位, 备选职位]
+    widget: choice
+  intention.job_type:
+    label: 招聘类型
+    aliases: [招聘类型, 应聘类型, 求职类型, 招聘类别, 投递类型, 申请类型]
+    widget: choice
+  intention.expected_city:
+    label: 期望工作城市
+    aliases: [期望工作城市, 期望城市, 意向城市, 期望工作地点, 期望地点, 工作地点意向, 意向工作地, 期望工作地]
+    widget: choice
+  intention.expected_city_list:
+    label: 期望城市列表
+    aliases: [意向城市排序, 期望城市排序, 城市意向排序]
+    widget: choice
+  intention.accept_relocation:
+    label: 是否服从调剂
+    aliases: [是否服从调剂, 服从调剂, 接受调剂, 是否接受调剂, 是否接受异地, 能否接受外派, 是否服从分配]
+    widget: choice
+  intention.expected_salary:
+    label: 期望薪资
+    aliases: [期望薪资, 期望月薪, 薪资要求, 期望薪酬, 期望年薪, 薪酬期望]
+    widget: choice
+  intention.available_date:
+    label: 可到岗时间
+    aliases: [可到岗时间, 到岗时间, 可入职时间, 最快到岗时间, 可实习时间, 入职时间]
+    widget: date
+  intention.intern_duration:
+    label: 可实习时长
+    aliases: [可实习时长, 实习时长, 实习期长度, 能实习多久]
+    widget: choice
+  intention.intern_days_per_week:
+    label: 每周实习天数
+    aliases: [每周实习天数, 每周可实习天数, 一周可实习天数, 每周到岗天数]
+    widget: choice
+  intention.accept_night_shift:
+    label: 是否接受加班
+    aliases: [是否接受加班, 接受加班, 是否接受倒班, 能否接受加班]
+    widget: choice
+  intention.how_did_you_know:
+    label: 获知渠道
+    aliases: [获知渠道, 招聘信息来源, 从何渠道得知, 信息来源, 获悉渠道, 了解到本公司的途径, 招聘信息获取渠道]
+    widget: choice
+
+  # ------------------------------ 教育经历 --------------------------------
+  education.school:
+    label: 学校名称
+    aliases: [学校名称, 学校, 毕业院校, 毕业学校, 院校, 就读学校, 学校全称, 就读院校, 毕业院校名称, 院校名称, 学校名]
+    exclude: [高中, 中学, 初中, 小学, 院系, 学院名称, 专业]
+    widget: text
+  education.school_type:
+    label: 学校性质
+    aliases: [学校性质, 院校性质, 学校类别, 院校类型, 办学性质]
+    widget: choice
+  education.major:
+    label: 专业名称
+    aliases: [专业名称, 专业, 所学专业, 就读专业, 主修专业, 专业方向, 学习专业]
+    exclude: [辅修, 第二专业, 专业类别, 专业大类]
+    widget: text
+  education.major_category:
+    label: 专业类别
+    aliases: [专业类别, 专业大类, 专业门类, 学科类别, 专业所属类别]
+    widget: choice
+  education.degree:
+    label: 学位
+    aliases: [学位, 所获学位, 学位类型, 授予学位]
+    widget: choice
+  education.degree_level:
+    label: 学历
+    aliases: [学历, 学历层次, 最高学历, 培养层次, 学历水平, 当前学历]
+    widget: choice
+  education.start_date:
+    label: 入学时间
+    aliases: [入学时间, 入学日期, 开始时间, 起始时间, 起始日期, 就读开始时间, 教育开始时间, 开始年月]
+    widget: date
+  education.end_date:
+    label: 毕业时间
+    aliases: [毕业时间, 毕业日期, 结束时间, 截止时间, 结束日期, 预计毕业时间, 毕业年月, 教育结束时间]
+    widget: date
+  education.graduation_year:
+    label: 毕业年份
+    aliases: [毕业年份, 毕业年度, 届别, 毕业届数]
+    widget: text
+  education.is_full_time:
+    label: 是否全日制
+    aliases: [是否全日制, 全日制, 是否统招, 统招, 是否全日制统招]
+    widget: choice
+  education.study_mode:
+    label: 学习形式
+    aliases: [学习形式, 培养方式, 就读形式, 学习方式]
+    widget: choice
+  education.gpa:
+    label: GPA
+    aliases: [gpa, 平均绩点, 绩点, 平均成绩, 平均分, 成绩平均分]
+    widget: text
+  education.rank:
+    label: 专业排名
+    aliases: [专业排名, 年级排名, 班级排名, 成绩排名, 排名情况]
+    widget: text
+  education.courses:
+    label: 主修课程
+    aliases: [主修课程, 主要课程, 所学课程, 核心课程]
+    widget: textarea
+  education.honors:
+    label: 在校荣誉
+    aliases: [在校荣誉, 获奖情况, 荣誉奖项, 所获奖励, 奖学金情况, 在校表现]
+    widget: textarea
+  education.city:
+    label: 学校所在城市
+    aliases: [学校所在城市, 院校所在地, 学校所在地, 就学城市]
+    widget: text
+
+  # ------------------------------ 成绩证书 --------------------------------
+  scores.cet4:
+    label: 四级分数
+    aliases: [四级分数, 英语四级分数, cet4成绩, 四级成绩]
+    widget: text
+  scores.cet6:
+    label: 六级分数
+    aliases: [六级分数, 英语六级分数, cet6成绩, 六级成绩]
+    widget: text
+  scores.english_level:
+    label: 英语水平
+    aliases: [英语水平, 外语水平, 英语等级, 英语能力, 外语等级]
+    widget: choice
+  scores.computer_level:
+    label: 计算机等级
+    aliases: [计算机等级, 计算机水平, 计算机能力, 计算机证书]
+    widget: choice
+  scores.other_certificates:
+    label: 其他证书
+    aliases: [其他证书, 资格证书, 职业资格证书, 证书名称, 所获证书, 专业技能证书]
+    widget: textarea
+  scores.has_failed_course:
+    label: 是否有挂科
+    aliases: [是否有挂科, 有无挂科, 挂科情况, 是否有不及格科目, 是否有重修]
+    widget: choice
+  scores.scholarship:
+    label: 奖学金
+    aliases: [奖学金, 奖学金情况, 是否获得奖学金]
+    widget: text
+
+  # ------------------------------ 实习经历 --------------------------------
+  internship.company:
+    label: 实习公司
+    aliases: [实习公司, 公司名称, 单位名称, 实习单位, 工作单位, 公司, 单位, 企业名称]
+    exclude: [家庭, 父, 母, 亲属]
+    widget: text
+  internship.position:
+    label: 实习岗位
+    aliases: [实习岗位, 担任职位, 职位名称, 实习职位, 工作岗位, 岗位名称, 职务]
+    exclude: [应聘, 意向, 期望, 申请]
+    widget: text
+  internship.department:
+    label: 所在部门
+    aliases: [所在部门, 部门, 部门名称, 所属部门]
+    widget: text
+  internship.start_date:
+    label: 实习开始时间
+    aliases: [实习开始时间, 开始时间, 起始时间, 开始日期, 入职时间, 起始日期]
+    widget: date
+  internship.end_date:
+    label: 实习结束时间
+    aliases: [实习结束时间, 结束时间, 离职时间, 结束日期, 截止日期]
+    widget: date
+  internship.city:
+    label: 实习城市
+    aliases: [实习城市, 工作城市, 工作地点, 所在城市]
+    widget: text
+  internship.salary:
+    label: 实习薪资
+    aliases: [实习薪资, 薪资, 月薪, 薪酬]
+    widget: text
+  internship.description:
+    label: 工作内容
+    aliases: [工作内容, 实习内容, 工作描述, 主要工作, 工作职责, 实习描述, 岗位职责]
+    widget: textarea
+
+  # ------------------------------ 项目经历 --------------------------------
+  project.name:
+    label: 项目名称
+    aliases: [项目名称, 项目名, 课题名称, 项目题目, 项目]
+    exclude: [公司, 实习]
+    widget: text
+  project.role:
+    label: 项目角色
+    aliases: [项目角色, 担任角色, 项目职务, 承担角色, 本人角色, 项目分工]
+    widget: text
+  project.company:
+    label: 项目所属单位
+    aliases: [项目所属单位, 项目来源, 所属单位, 项目归属]
+    widget: text
+  project.start_date:
+    label: 项目开始时间
+    aliases: [项目开始时间, 开始时间, 起始时间, 开始日期, 起始日期]
+    widget: date
+  project.end_date:
+    label: 项目结束时间
+    aliases: [项目结束时间, 结束时间, 结束日期, 截止日期]
+    widget: date
+  project.stack:
+    label: 项目技术栈
+    aliases: [项目技术栈, 技术栈, 使用技术, 开发工具, 技术要点, 涉及技术]
+    widget: textarea
+  project.description:
+    label: 项目描述
+    aliases: [项目描述, 项目简介, 项目内容, 项目概述, 项目介绍, 项目经历描述]
+    widget: textarea
+  project.duty:
+    label: 项目职责
+    aliases: [项目职责, 我的职责, 主要职责, 本人工作, 承担工作, 个人贡献, 负责内容]
+    widget: textarea
+
+  # ------------------------------ 专业技能 --------------------------------
+  skills.languages:
+    label: 编程语言
+    aliases: [编程语言, 掌握语言, 计算机语言, 开发语言]
+    widget: textarea
+  skills.bigdata:
+    label: 大数据技能
+    aliases: [大数据技能, 大数据技术, 大数据相关技能]
+    widget: textarea
+  skills.database:
+    label: 数据库技能
+    aliases: [数据库技能, 数据库, 数据库能力]
+    widget: textarea
+  skills.ops:
+    label: 运维技能
+    aliases: [运维技能, 系统运维, 运维能力, 服务器技能]
+    widget: textarea
+  skills.tools:
+    label: 常用工具
+    aliases: [常用工具, 开发工具, 工具软件, 使用工具]
+    widget: textarea
+
+  # ------------------------------ 语言能力 --------------------------------
+  language.english:
+    label: 英语能力
+    aliases: [英语能力, 英语等级水平, 英语掌握程度]
+    widget: choice
+  language.other:
+    label: 其他语言
+    aliases: [其他语言, 第二外语, 其他外语, 小语种]
+    widget: text
+
+  # ------------------------------ 家庭信息 --------------------------------
+  family.name:
+    label: 家庭成员姓名
+    aliases: [家庭成员姓名, 姓名, 成员姓名]
+    widget: text
+  family.relation:
+    label: 与本人关系
+    aliases: [与本人关系, 关系, 称谓, 亲属关系]
+    widget: choice
+  family.phone:
+    label: 家庭成员电话
+    aliases: [联系电话, 电话, 手机号码, 家庭电话]
+    widget: text
+  family.work_unit:
+    label: 工作单位
+    aliases: [工作单位, 所在单位, 单位名称, 工作单位名称]
+    widget: text
+  family.position:
+    label: 家庭职务
+    aliases: [职务, 职位, 担任职务, 职业]
+    widget: text
+
+  # ------------------------------ 紧急联系人 -------------------------------
+  emergency.name:
+    label: 紧急联系人姓名
+    aliases: [紧急联系人姓名, 紧急联系人, 姓名, 联系人姓名]
+    widget: text
+  emergency.relation:
+    label: 紧急联系人关系
+    aliases: [与本人关系, 关系, 称谓, 联系人关系]
+    widget: choice
+  emergency.phone:
+    label: 紧急联系人电话
+    aliases: [紧急联系电话, 联系电话, 手机号码, 紧急联系人手机]
+    widget: text
+
+  # ------------------------------ 其他信息 --------------------------------
+  misc.is_fresh_graduate:
+    label: 是否应届毕业生
+    aliases: [是否应届毕业生, 是否应届生, 应届生, 毕业状态, 是否应届, 生源类型]
+    widget: choice
+  misc.has_offer:
+    label: 是否有其他offer
+    aliases: [是否有其他offer, 是否已签约, 是否有offer, 其他offer情况]
+    widget: choice
+  misc.need_visa:
+    label: 是否需要签证
+    aliases: [是否需要签证, 是否需要办理工作签证, 签证需求]
+    widget: choice
+  misc.disability:
+    label: 健康状况
+    aliases: [健康状况, 是否有重大疾病, 身体情况, 残疾情况]
+    widget: choice
+  misc.criminal_record:
+    label: 是否有犯罪记录
+    aliases: [是否有犯罪记录, 有无犯罪记录, 违法犯罪记录, 是否受过刑事处罚]
+    widget: choice
+  misc.relative_in_company:
+    label: 是否有亲属在本公司
+    aliases: [是否有亲属在本公司任职, 是否在本公司有亲属, 亲属任职情况, 是否有亲属在公司]
+    widget: choice
+  misc.agree_background_check:
+    label: 是否同意背景调查
+    aliases: [是否同意背景调查, 同意背景调查, 授权背景调查]
+    widget: choice
+  misc.agree_data_processing:
+    label: 是否同意个人信息处理
+    aliases: [是否同意个人信息处理, 同意个人信息处理, 个人信息授权, 是否同意我司处理个人信息]
+    widget: choice

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>校园招聘 · 在线简历填写（北森风格模拟页）</title>
+<style>
+  /* 刻意模仿网申系统的视觉：蓝色主题、表格布局、* 号必填 */
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.7 "Microsoft YaHei", Arial, sans-serif; color: #333; background: #f0f2f5; }
+  .page { max-width: 1000px; margin: 0 auto; background: #fff; padding: 24px 32px 48px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .sub { color: #888; margin-bottom: 20px; }
+  h3.sec { font-size: 15px; margin: 26px 0 10px; padding-left: 9px; border-left: 3px solid #2b7de9; }
+  table.form { width: 100%; border-collapse: collapse; }
+  table.form > tbody > tr > td { border: 1px solid #e3e6eb; padding: 8px 10px; vertical-align: middle; }
+  td.lbl { width: 170px; background: #fafbfc; color: #555; text-align: right; }
+  .star { color: #e34d4d; margin-left: 3px; }
+  input[type=text], select, textarea { width: 100%; padding: 5px 7px; border: 1px solid #ccd2da; border-radius: 3px; font: inherit; background: #fff; }
+  textarea { min-height: 62px; resize: vertical; }
+  input[readonly] { background: #f7f8fa; cursor: pointer; }
+  .radios label, .checks label { margin-right: 16px; white-space: nowrap; }
+  .radios input, .checks input { vertical-align: -1px; margin-right: 3px; }
+  .repeat-list { border: 1px dashed #d6dbe2; border-radius: 4px; padding: 8px; background: #fcfdfe; }
+  .repeat-block { margin-bottom: 8px; }
+  .repeat-block table.form { background: #fff; }
+  .add-btn { margin-top: 4px; padding: 5px 12px; border: 1px solid #2b7de9; color: #2b7de9; background: #fff; border-radius: 3px; cursor: pointer; font: inherit; }
+  .actions { margin-top: 30px; text-align: center; }
+  .btn { padding: 8px 26px; border-radius: 3px; border: 1px solid #ccd2da; background: #fff; cursor: pointer; font: inherit; margin: 0 8px; }
+  .btn.primary { background: #2b7de9; border-color: #2b7de9; color: #fff; }
+  .select-wrap { position: relative; }
+  .option-list { position: absolute; z-index: 30; left: 0; right: 0; top: 100%; margin: 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #ccd2da; border-radius: 3px; box-shadow: 0 4px 12px rgba(0,0,0,.12); max-height: 190px; overflow: auto; }
+  .option-item { padding: 5px 10px; cursor: pointer; }
+  .option-item:hover { background: #eaf2fd; }
+  .date-wrap { position: relative; }
+  .date-panel { position: absolute; z-index: 30; left: 0; top: 100%; background: #fff; border: 1px solid #ccd2da; border-radius: 3px; padding: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.12); width: 250px; }
+  .date-cell { display: inline-block; width: 46px; text-align: center; padding: 3px 0; margin: 2px; cursor: pointer; border-radius: 3px; }
+  .date-cell:hover { background: #eaf2fd; }
+  .notice-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .notice { background: #fff; width: 420px; padding: 20px 24px; border-radius: 6px; text-align: center; }
+  .notice p { color: #666; text-align: left; }
+</style>
+</head>
+<body>
+<div class="notice-mask" id="noticeMask">
+  <div class="notice">
+    <h3>温馨提示</h3>
+    <p>请确保所填信息真实有效，提交后部分信息将无法修改。简历填写预计需要 15 分钟，建议使用 Chrome 浏览器。</p>
+    <button class="btn primary" id="noticeOk">我知道了</button>
+  </div>
+</div>
+
+<div class="page" id="formArea" style="display:none">
+  <h1>校园招聘 · 在线简历</h1>
+  <div class="sub">应聘职位：数据开发工程师（2026 校园招聘）　　简历完成度 <span id="progress">0</span>%</div>
+
+  <!-- ============================ 基本信息 ============================ -->
+  <h3 class="sec">基本信息</h3>
+  <table class="form">
+    <tr>
+      <td class="lbl">姓名<span class="star">*</span></td>
+      <td><input type="text" name="userName" placeholder="请输入姓名"></td>
+      <td class="lbl">性别<span class="star">*</span></td>
+      <td>
+        <div class="radios">
+          <label><input type="radio" name="gender" value="M">男</label>
+          <label><input type="radio" name="gender" value="F">女</label>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td class="lbl">出生日期<span class="star">*</span></td>
+      <td>
+        <div class="date-wrap">
+          <input type="text" name="birthDate" readonly placeholder="YYYY-MM-DD">
+          <div class="date-panel" id="birthPanel" style="display:none"></div>
+        </div>
+      </td>
+      <td class="lbl">民族</td>
+      <td>
+        <select name="nation">
+          <option value="">请选择</option>
+          <option>汉族</option><option>蒙古族</option><option>回族</option><option>满族</option><option>其他</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="lbl">手机号码<span class="star">*</span></td>
+      <td><input type="text" name="mobile" placeholder="请输入 11 位手机号" maxlength="11"></td>
+      <td class="lbl">电子邮箱<span class="star">*</span></td>
+      <td><input type="text" name="email" placeholder="请输入常用邮箱"></td>
+    </tr>
+    <tr>
+      <td class="lbl">身份证号<span class="star">*</span></td>
+      <td><input type="text" name="idCard" placeholder="请输入 18 位身份证号码" maxlength="18"></td>
+      <td class="lbl">政治面貌<span class="star">*</span></td>
+      <td>
+        <select name="politicalStatus">
+          <option value="">请选择</option>
+          <option>中共党员</option><option>中共预备党员</option><option>共青团员</option><option>群众</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="lbl">婚姻状况</td>
+      <td>
+        <div class="radios">
+          <label><input type="radio" name="marriage" value="0">未婚</label>
+          <label><input type="radio" name="marriage" value="1">已婚</label>
+        </div>
+      </td>
+      <td class="lbl">户口性质</td>
+      <td>
+        <select name="hukouType">
+          <option value="">请选择</option><option>城镇</option><option>农村</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="lbl">身高(cm)</td>
+      <td><input type="text" name="height" placeholder="请输入身高"></td>
+      <td class="lbl">体重(kg)</td>
+      <td><input type="text" name="weight" placeholder="请输入体重"></td>
+    </tr>
+    <tr>
+      <td class="lbl">籍贯</td>
+      <td><input type="text" name="nativePlace" placeholder="请输入籍贯"></td>
+      <td class="lbl">现居住城市</td>
+      <td><input type="text" name="currentCity" placeholder="请输入现居住城市"></td>
+    </tr>
+    <tr>
+      <td class="lbl">通讯地址</td>
+      <td colspan="3"><input type="text" name="address" placeholder="请输入详细通讯地址"></td>
+    </tr>
+    <tr>
+      <td class="lbl">短信验证码<span class="star">*</span></td>
+      <td><input type="text" name="smsCode" placeholder="请输入手机收到的验证码"></td>
+      <td class="lbl">邮政编码</td>
+      <td><input type="text" name="postcode" placeholder="请输入邮政编码"></td>
+    </tr>
+  </table>
+
+  <!-- ============================ 求职意向 ============================ -->
+  <h3 class="sec">求职意向</h3>
+  <table class="form">
+    <tr>
+      <td class="lbl">应聘岗位<span class="star">*</span></td>
+      <td>
+        <div class="select-wrap" id="posWrap">
+          <input type="text" name="applyPosition" readonly placeholder="请选择应聘岗位">
+          <ul class="option-list" id="posList" style="display:none">
+            <li class="option-item">数据开发工程师</li>
+            <li class="option-item">大数据开发工程师</li>
+            <li class="option-item">数据分析工程师</li>
+            <li class="option-item">后端开发工程师</li>
+          </ul>
+        </div>
+      </td>
+      <td class="lbl">期望工作城市</td>
+      <td>
+        <select name="expectCity">
+          <option value="">请选择</option>
+          <option>全国</option><option>北京</option><option>上海</option><option>深圳</option><option>武汉</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="lbl">是否服从调剂<span class="star">*</span></td>
+      <td>
+        <div class="radios">
+          <label><input type="radio" name="adjust" value="1">是</label>
+          <label><input type="radio" name="adjust" value="0">否</label>
+        </div>
+      </td>
+      <td class="lbl">期望薪资</td>
+      <td>
+        <select name="expectSalary">
+          <option value="">请选择</option><option>面议</option><option>8-12K</option><option>12-18K</option><option>18K 以上</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="lbl">可到岗时间</td>
+      <td>
+        <div class="date-wrap">
+          <input type="text" name="availableDate" readonly placeholder="YYYY-MM-DD">
+          <div class="date-panel" id="availPanel" style="display:none"></div>
+        </div>
+      </td>
+      <td class="lbl">获知渠道</td>
+      <td>
+        <select name="source">
+          <option value="">请选择</option><option>公司招聘官网</option><option>校园宣讲会</option><option>招聘网站</option><option>朋友推荐</option>
+        </select>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ============================ 教育经历 ============================ -->
+  <h3 class="sec">教育经历</h3>
+  <div class="repeat-list" id="eduList"></div>
+  <button type="button" class="add-btn" id="addEdu">添加教育经历</button>
+
+  <!-- ============================ 项目经历 ============================ -->
+  <h3 class="sec">项目经历</h3>
+  <div class="repeat-list" id="projList"></div>
+  <button type="button" class="add-btn" id="addProj">添加项目经历</button>
+
+  <!-- ============================ 成绩证书 ============================ -->
+  <h3 class="sec">成绩证书</h3>
+  <table class="form">
+    <tr>
+      <td class="lbl">英语水平</td>
+      <td>
+        <select name="englishLevel">
+          <option value="">请选择</option>
+          <option>大学英语四级</option><option>大学英语六级</option><option>专业英语四级</option><option>无</option>
+        </select>
+      </td>
+      <td class="lbl">四级分数</td>
+      <td><input type="text" name="cet4" placeholder="请输入四级分数"></td>
+    </tr>
+    <tr>
+      <td class="lbl">是否有挂科</td>
+      <td>
+        <div class="radios">
+          <label><input type="radio" name="failed" value="1">是</label>
+          <label><input type="radio" name="failed" value="0">否</label>
+        </div>
+      </td>
+      <td class="lbl">计算机等级</td>
+      <td><input type="text" name="computerLevel" placeholder="请输入计算机等级"></td>
+    </tr>
+    <tr>
+      <td class="lbl">其他证书</td>
+      <td colspan="3"><textarea name="otherCert" placeholder="请填写其他证书，没有可填「无」"></textarea></td>
+    </tr>
+  </table>
+
+  <!-- ============================ 开放题 ============================ -->
+  <h3 class="sec">开放题</h3>
+  <table class="form">
+    <tr><td class="lbl">自我评价<span class="star">*</span></td>
+      <td><textarea name="selfEval" maxlength="400" placeholder="请用 400 字以内介绍你自己"></textarea></td></tr>
+    <tr><td class="lbl">职业规划<span class="star">*</span></td>
+      <td><textarea name="careerPlan" maxlength="400" placeholder="请描述你的职业规划"></textarea></td></tr>
+    <tr><td class="lbl">其他需要说明的情况</td>
+      <td><textarea name="additional" maxlength="300" placeholder="如无可不填"></textarea></td></tr>
+  </table>
+
+  <!-- ============================ 家庭主要成员（危险区块，绝不能被误填） ============================ -->
+  <h3 class="sec">家庭主要成员</h3>
+  <table class="form">
+    <tr><td class="lbl">姓名<span class="star">*</span></td><td class="lbl">与本人关系<span class="star">*</span></td><td class="lbl">联系电话</td></tr>
+    <tr>
+      <td><input type="text" name="familyName" placeholder="请输入姓名"></td>
+      <td><input type="text" name="familyRelation" placeholder="请输入关系"></td>
+      <td><input type="text" name="familyPhone" placeholder="请输入联系电话"></td>
+    </tr>
+  </table>
+
+  <!-- ============================ 附件 ============================ -->
+  <h3 class="sec">附件上传</h3>
+  <table class="form">
+    <tr><td class="lbl">简历附件</td><td><input type="file" name="resumeFile"></td></tr>
+    <tr><td class="lbl">证件照</td><td><input type="file" name="photoFile"></td></tr>
+  </table>
+
+  <div class="actions">
+    <button type="button" class="btn" id="saveDraft">保存草稿</button>
+    <button type="button" class="btn primary" id="submitBtn">提交申请</button>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// 这个模拟页提供两个测试钩子：
+//   window.__formState()  —— 回读所有字段的值（断言填得对不对）
+//   window.__submitClicks —— 提交按钮被点的次数（必须永远是 0）
+// ============================================================================
+window.__submitClicks = 0;
+window.__saveClicks = 0;
+
+document.getElementById('noticeOk').onclick = function () {
+  document.getElementById('noticeMask').style.display = 'none';
+  document.getElementById('formArea').style.display = '';
+};
+document.getElementById('submitBtn').onclick = function () { window.__submitClicks++; };
+document.getElementById('saveDraft').onclick = function () { window.__saveClicks++; };
+
+// 通用：点开式假下拉
+function bindFakeSelect(wrapId, listId) {
+  var wrap = document.getElementById(wrapId);
+  var input = wrap.querySelector('input');
+  var list = document.getElementById(listId);
+  input.addEventListener('click', function (e) {
+    e.stopPropagation();
+    list.style.display = list.style.display === 'none' ? '' : 'none';
+  });
+  list.querySelectorAll('.option-item').forEach(function (li) {
+    li.addEventListener('click', function (e) {
+      e.stopPropagation();
+      input.value = li.textContent.trim();
+      list.style.display = 'none';
+    });
+  });
+  document.addEventListener('click', function () { list.style.display = 'none'; });
+}
+bindFakeSelect('posWrap', 'posList');
+
+// 通用：只读输入框 + 年/月两段式日历
+function buildDatePicker(inputName, panelId) {
+  var input = document.querySelector('input[name="' + inputName + '"]');
+  var panel = document.getElementById(panelId);
+  var year = 0;
+  function showYears() {
+    var html = '';
+    for (var y = 2030; y >= 2000; y--) { html += '<span class="date-cell year">' + y + '</span>'; }
+    panel.innerHTML = html;
+    panel.querySelectorAll('.date-cell.year').forEach(function (c) {
+      c.onclick = function (e) {
+        e.stopPropagation();
+        year = c.textContent.trim();
+        showMonths();
+      };
+    });
+  }
+  function showMonths() {
+    var html = '';
+    for (var m = 1; m <= 12; m++) { html += '<span class="date-cell month">' + m + '</span>'; }
+    panel.innerHTML = html;
+    panel.querySelectorAll('.date-cell.month').forEach(function (c) {
+      c.onclick = function (e) {
+        e.stopPropagation();
+        var mm = String(c.textContent.trim());
+        if (mm.length < 2) { mm = '0' + mm; }
+        input.value = year + '-' + mm;
+        panel.style.display = 'none';
+      };
+    });
+  }
+  input.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (panel.style.display === 'none') { showYears(); panel.style.display = ''; }
+    else { panel.style.display = 'none'; }
+  });
+  document.addEventListener('click', function () { panel.style.display = 'none'; });
+}
+buildDatePicker('birthDate', 'birthPanel');
+buildDatePicker('availableDate', 'availPanel');
+
+// ---------------------------------------------------------------- 重复块
+var eduSeq = 0;
+function eduBlockHtml(i) {
+  return '' +
+  '<div class="repeat-block">' +
+    '<table class="form">' +
+      '<tr>' +
+        '<td class="lbl">学校名称<span class="star">*</span></td>' +
+        '<td><input type="text" name="eduSchool' + i + '" placeholder="请输入学校全称"></td>' +
+        '<td class="lbl">学历<span class="star">*</span></td>' +
+        '<td><select name="eduDegree' + i + '"><option value="">请选择</option><option>本科</option><option>硕士研究生</option><option>博士研究生</option><option>大专</option></select></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">专业名称<span class="star">*</span></td>' +
+        '<td><input type="text" name="eduMajor' + i + '" placeholder="请输入专业全称"></td>' +
+        '<td class="lbl">专业排名</td>' +
+        '<td><input type="text" name="eduRank' + i + '" placeholder="如：专业排名前 20%"></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">入学时间<span class="star">*</span></td>' +
+        '<td><div class="date-wrap"><input type="text" name="eduStart' + i + '" readonly placeholder="YYYY-MM-DD">' +
+          '<div class="date-panel" id="eduStartPanel' + i + '" style="display:none"></div></div></td>' +
+        '<td class="lbl">毕业时间<span class="star">*</span></td>' +
+        '<td><div class="date-wrap"><input type="text" name="eduEnd' + i + '" readonly placeholder="YYYY-MM-DD">' +
+          '<div class="date-panel" id="eduEndPanel' + i + '" style="display:none"></div></div></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">主修课程</td>' +
+        '<td colspan="3"><textarea name="eduCourses' + i + '" placeholder="请输入主修课程"></textarea></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">在校荣誉</td>' +
+        '<td colspan="3"><textarea name="eduHonors' + i + '" placeholder="请输入在校荣誉"></textarea></td>' +
+      '</tr>' +
+    '</table>' +
+  '</div>';
+}
+function addEduBlock() {
+  var i = eduSeq++;
+  document.getElementById('eduList').insertAdjacentHTML('beforeend', eduBlockHtml(i));
+  buildDatePicker('eduStart' + i, 'eduStartPanel' + i);
+  buildDatePicker('eduEnd' + i, 'eduEndPanel' + i);
+}
+
+var projSeq = 0;
+function projBlockHtml(i) {
+  return '' +
+  '<div class="repeat-block">' +
+    '<table class="form">' +
+      '<tr>' +
+        '<td class="lbl">项目名称<span class="star">*</span></td>' +
+        '<td><input type="text" name="projName' + i + '" placeholder="请输入项目名称"></td>' +
+        '<td class="lbl">项目角色</td>' +
+        '<td><input type="text" name="projRole' + i + '" placeholder="请输入担任角色"></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">开始时间</td>' +
+        '<td><div class="date-wrap"><input type="text" name="projStart' + i + '" readonly placeholder="YYYY-MM-DD">' +
+          '<div class="date-panel" id="projStartPanel' + i + '" style="display:none"></div></div></td>' +
+        '<td class="lbl">结束时间</td>' +
+        '<td><div class="date-wrap"><input type="text" name="projEnd' + i + '" readonly placeholder="YYYY-MM-DD">' +
+          '<div class="date-panel" id="projEndPanel' + i + '" style="display:none"></div></div></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">项目描述<span class="star">*</span></td>' +
+        '<td colspan="3"><textarea name="projDesc' + i + '" maxlength="600" placeholder="请描述项目内容"></textarea></td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td class="lbl">项目职责</td>' +
+        '<td colspan="3"><textarea name="projDuty' + i + '" placeholder="请描述你的职责"></textarea></td>' +
+      '</tr>' +
+    '</table>' +
+  '</div>';
+}
+function addProjBlock() {
+  var i = projSeq++;
+  document.getElementById('projList').insertAdjacentHTML('beforeend', projBlockHtml(i));
+  buildDatePicker('projStart' + i, 'projStartPanel' + i);
+  buildDatePicker('projEnd' + i, 'projEndPanel' + i);
+}
+
+document.getElementById('addEdu').onclick = addEduBlock;
+document.getElementById('addProj').onclick = addProjBlock;
+
+// 初始各给一段
+addEduBlock();
+addProjBlock();
+
+// ------------------------------------------------------------ 测试钩子
+window.__formState = function () {
+  var out = {};
+  document.querySelectorAll('input,select,textarea').forEach(function (el) {
+    var n = el.getAttribute('name');
+    if (!n) { return; }
+    if (el.type === 'radio') {
+      if (el.checked) { out[n] = el.value; }
+      else if (!(n in out)) { out[n] = ''; }
+      return;
+    }
+    if (el.type === 'file') { out[n] = el.files && el.files.length ? el.files[0].name : ''; return; }
+    out[n] = el.value;
+  });
+  out.__submitClicks = window.__submitClicks;
+  out.__saveClicks = window.__saveClicks;
+  return out;
+};
+
+// 完成度（模仿真站的进度显示，纯装饰）
+document.addEventListener('change', function () {
+  var total = 0, filled = 0;
+  document.querySelectorAll('input[type=text],select,textarea').forEach(function (el) {
+    if (el.type === 'file') { return; }
+    total++;
+    if (el.value) { filled++; }
+  });
+  var p = total ? Math.round(filled * 100 / total) : 0;
+  var node = document.getElementById('progress');
+  if (node) { node.textContent = p; }
+});
+</script>
+</body>
+</html>
